@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Calculator Clicker</title>
+    <meta charset="UTF-8" />
+    <meta name="description" content="Calculator Clicker" />
+    <meta name="author" content="Math Orientation" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  </head>
+  <body>
+    <header>
+      <div class="left">
+        <ul class="inline">
+        </ul>
+      </div>
+      <div class="right">
+        <ul class="inline">
+        </ul>
+      </div>
+    </header>
+    <div class="content">
+      <div class="app-container">
+      </div>
+    </div>
+    <div id="templates" class="templates">
+      <!-- Tempalte listing -->
+      <!-- Item template -->
+      <script type="text/template" id="item">
+        <div class="item">
+          <h3><%= name %></h3>
+          <table class="table">
+            <tbody>
+              <td><%= description %></td>
+              <% if (can_buy) { %>
+              <td><button>Buy</button></td>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </script>
+      <!-- End of templates -->
+    </div>
+  </body>
+</html>

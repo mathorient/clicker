@@ -1,0 +1,7 @@
+# Mac temporary files
+.DS_Store
+**/.DS_Store
+
+# Temporary styling files
+.sass_cache/
+**/.sass_cache/

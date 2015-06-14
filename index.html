@@ -6,39 +6,127 @@
     <meta name="description" content="Calculator Clicker" />
     <meta name="author" content="Math Orientation" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <link type="text/css" href="static/stylesheets/app.css" rel="stylesheet" />
   </head>
   <body>
-    <header>
-      <div class="left">
-        <ul class="inline">
-        </ul>
-      </div>
-      <div class="right">
-        <ul class="inline">
-        </ul>
-      </div>
-    </header>
-    <div class="content">
-      <div class="app-container">
-      </div>
+    <div class="app-container">
+      <div class="table"></div>
     </div>
     <div id="templates" class="templates">
       <!-- Tempalte listing -->
+      <!-- Application clicker layout template -->
+      <script type="text/template" id="app-clicker-template">
+        <div class="app-clicker-region">
+        </div>
+        <div class="app-clicker-info-region">
+        </div>
+      </script>
+      <!-- Store items layout template -->
+      <script type="text/template" id="app-items-template">
+        <!-- Header to switch between stores/lists -->
+        <div class="app-item-header">
+          <ul class="inline">
+            <li>Store</li>
+            <li>Upgrade</li>
+            <li>Achievements</li>
+          </ul>
+        </div>
+        <div class="app-item-body">
+          <div class="app-item-store"></div>
+          <div class="app-item-upgrades"></div>
+          <div class="app-item-achievements"></div>
+        </div>
+      </script>
+      <!-- Clicker information template -->
+      <script type="text/template" id="clicker-info-template">
+        <div class="text-center">
+          <div class="row info-title">
+            <strong>Total Time:</strong>
+          </div>
+          <div class="row">
+            <%= time %>
+          </div>
+        </div>
+        <br/>
+        <div class="text-center">
+          <div class="row info-title">
+            <strong>Calculators:</strong>
+          </div>
+          <div class="row">
+            <%= calculators %>
+          </div>
+        </div>
+        <br/>
+        <div class="text-center">
+          <div class="row info-title">
+            <strong>Calculators Per Second:</strong>
+          </div>
+          <div class="row">
+            <%= cps %>
+          </div>
+        </div>
+      </script>
+      <!-- Point template -->
+      <script type="text/template" id="point-template">
+        <span>+<%= value %></span>
+      </script>
+      <!-- Clicker template -->
+      <script type="text/template" id="clicker-template">
+        <img src="static/images/calculator.png" />
+      </script>
       <!-- Item template -->
-      <script type="text/template" id="item">
+      <script type="text/template" id="item-template">
         <div class="item">
-          <h3><%= name %></h3>
-          <table class="table">
-            <tbody>
-              <td><%= description %></td>
-              <% if (can_buy) { %>
-              <td><button>Buy</button></td>
+          <% if (itemType !== 'achievement') { %>
+            <div class="row">
+              <h3 class="item-title"><%= name %></h3>
+            </div>
+            <div class="row">
+              <p class="item-description"><%= description %></p>
+            </div>
+            <div class="row text-right" style="padding-top: 10px;">
+              <div class="cost"><strong>Cost:</strong> <%= cost %></div>
+              <% if (itemType === 'store') { %>
+                <div class="count"><strong>Inventory:</strong> <%= count %></div>
+                <% if (available) { %>
+                  <div class="buy btn btn-default">Buy</div>
+                <% } else { %>
+                  <div class="btn">Not Enough Calculators</div>
+                <% } %>
+              <% } else { %>
+                <% if (purchased) { %>
+                  <div class="btn bought">Bought</div>
+                <% } else if (!available) { %>
+                  <div class="btn">Not Enough Calculators</div>
+                <% } else { %>
+                  <div class="buy btn btn-default">Buy</div>
+                <% } %>
               <% } %>
-            </tbody>
-          </table>
+            </div>
+          <% } else { %>
+            <div class="col">
+              <img src="static/images/star.png" />
+            </div>
+            <div class="col">
+              <div class="row">
+                <h3 class="item-title"><%= name %></h3>
+              </div>
+              <div class="row">
+                <p class="item-description"><%= description %></p>
+              </div>
+            </div>
+          <% } %>
         </div>
       </script>
       <!-- End of templates -->
+    </div>
+    <div id="scripts">
+      <script type="text/javascript" src="vendor/javascript/jquery-2.1.1.min.js"></script>
+      <script type="text/javascript" src="vendor/javascript/underscore.js"></script>
+      <script type="text/javascript" src="vendor/javascript/backbone-min.js"></script>
+      <script type="text/javascript" src="vendor/javascript/backbone.marionette.min.js"></script>
+      <script type="text/javascript" src="static/javascript/items.js"></script>
+      <script type="text/javascript" src="static/javascript/app.js"></script>
     </div>
   </body>
 </html>

@@ -46,6 +46,7 @@ var oldWindow = window;
       this.set('available', false);
       this.set('cost', attributes.cost);
       this.set('value', attributes.value);
+
       // One of either 'click' or 'cps'.
       this.set('type', attributes.type);
       this.set('itemType', 'store');
@@ -65,9 +66,11 @@ var oldWindow = window;
       this.set('available', false);
       this.set('cost', attributes.cost);
       this.set('modifierTarget', attributes.modifierTarget);
+
       // A float that represents either a flat amount for which to increase or
       // the percantage for which to modify.
       this.set('modifierRate', attributes.modifierRate);
+
       // One of either 'percent' or 'flat'.
       this.set('modifierType', attributes.modifierType);
       this.set('itemType', 'upgrade');
@@ -315,12 +318,22 @@ var oldWindow = window;
     registerListeners: function() {
       var self = this;
 
+      $(window).resize(function() {
+        var h = $(window).height();
+        var body = self.$el.find('.app-item-body');
+        if (body.length > 0) {
+          body.eq(0).css('height', h - body.offset().top - 20);
+        }
+      });
+
       Events.on('clicker:rendered', function(view) {
         view.$el.appendTo(self.$el.find('.table'));
       });
 
       Events.on('items:rendered', function(view) {
-        view.$el.appendTo(self.$el.find('.table'));
+        view
+          .$el
+          .appendTo(self.$el.find('.table'));
 
         self.storeCollectionView = new ItemCollectionView({
           collection: self.collections.store || []
@@ -337,6 +350,8 @@ var oldWindow = window;
         self.layouts.itemRegion.showChildView('store', self.storeCollectionView);
         self.layouts.itemRegion.showChildView('upgrades', self.upgradeCollectionView);
         self.layouts.itemRegion.showChildView('achievements', self.achievementCollectionView);
+
+        $(window).resize();
       });
 
       Events.on('clicker:clicked', function() {
@@ -351,12 +366,15 @@ var oldWindow = window;
         self.itemPurchase(o);
       });
 
-      //this.interval = setInterval(function() {
-      //  self.data.time += 1;
-      //  self.data.total += self.data.cps;
-      //  self.data.calculators += self.data.cps;
-      //  self.update();
-      //}, 1000 /* 1 second */);
+      $(window).resize();
+
+      this.interval = setInterval(function() {
+        self.data.time += 1;
+        self.data.total += self.data.cps;
+        self.data.calculators += self.data.cps;
+        self.update();
+        self.checkAchievements();
+      }, 1000 /* 1 second */);
     },
     checkAchievements: function(achievement) {
       var achievements = GameItems.achievements;
@@ -407,6 +425,22 @@ var oldWindow = window;
       } else {
         this.data.items[name].count += 1;
       }
+
+      var self = this;
+      this.data.upgrades.forEach(function(upgradeName) {
+        var upgrade = self
+              .collections
+              .upgrades
+              .findWhere({ name: upgradeName });
+        if (upgrade.get('modifierTarget') === name) {
+          self.data.items[name].modifiers.push({
+            modifierRate: upgrade.get('modifierRate'),
+            modifierType: upgrade.get('modifierType'),
+            modifierTarget: upgrade.get('modifierTarget')
+          });
+        }
+      });
+
       this.updateData();
     },
     upgradePurchase: function(upgrade) {
@@ -437,11 +471,13 @@ var oldWindow = window;
 
       var self = this;
       target.forEach(function(t) {
-        self.data.items[t].modifiers.push({
-          modifierRate: upgrade.get('modifierRate'),
-          modifierType: upgrade.get('modifierType'),
-          modifierTarget: upgrade.get('modifierTarget')
-        });
+        if (self.data.items[i]) {
+          self.data.items[t].modifiers.push({
+            modifierRate: upgrade.get('modifierRate'),
+            modifierType: upgrade.get('modifierType'),
+            modifierTarget: upgrade.get('modifierTarget')
+          });
+        }
       });
 
       this.updateData();
@@ -561,51 +597,55 @@ var oldWindow = window;
           count = data.items[o.name].count;
         }
 
-        self.collections.store.add(new StoreItem({
-          name: o.name,
-          description: o.description,
-          cost: o.cost,
-          value: o.value,
-          type: o.type,
-          count: count
-        }));
+        if (o.name && o.name.length) {
+          self.collections.store.add(new StoreItem({
+            name: o.name,
+            description: o.description,
+            cost: o.cost,
+            value: o.value,
+            type: o.type,
+            count: count
+          }));
 
-        self.data.items[o.name] = {
-          count: count,
-          type: o.type,
-          baseValue: o.value,
-          modifiers: []
-        };
+          self.data.items[o.name] = {
+            count: count,
+            type: o.type,
+            baseValue: o.value,
+            modifiers: []
+          };
+        }
       });
 
       upgrades.forEach(function(o) {
         var purchased = (data.upgrades.indexOf(o.name) > -1 ? true : false);
 
-        self.collections.upgrades.add(new Upgrade({
-          name: o.name,
-          description: o.description,
-          cost: o.cost,
-          purchased: purchased,
-          modifierTarget: o.modifierTarget,
-          modifierRate: o.modifierRate,
-          modifierType: o.modifierType
-        }));
+        if (o.name && o.name.length) {
+          self.collections.upgrades.add(new Upgrade({
+            name: o.name,
+            description: o.description,
+            cost: o.cost,
+            purchased: purchased,
+            modifierTarget: o.modifierTarget,
+            modifierRate: o.modifierRate,
+            modifierType: o.modifierType
+          }));
 
-        if (purchased) {
-          var target = o.modifierTarget;
-          if (typeof target === 'string') {
-            target = [target];
-          }
+          if (purchased) {
+            var target = o.modifierTarget;
+            if (typeof target === 'string') {
+              target = [target];
+            }
 
-          self.data.upgrades.push(o.name);
+            self.data.upgrades.push(o.name);
 
-          target.forEach(function(t) {
-            self.data.items[t].modifiers.push({
-              modifierRate: o.modifierRate,
-              modifierType: o.modifierType,
-              modifierTarget: o.modifierTarget
+            target.forEach(function(t) {
+              self.data.items[t].modifiers.push({
+                modifierRate: o.modifierRate,
+                modifierType: o.modifierType,
+                modifierTarget: o.modifierTarget
+              });
             });
-          });
+          }
         }
       });
 
@@ -628,5 +668,9 @@ var oldWindow = window;
       app.clear();
     };
   });
-})(window, window.$ || window.jQuery, window._ || window.underscore,
-   window.Backbone, window.Marionette || window.Mn, window.Items || []);
+})(window,
+   window.$ || window.jQuery,
+   window._ || window.underscore,
+   window.Backbone,
+   window.Marionette || window.Mn,
+   window.Items || []);

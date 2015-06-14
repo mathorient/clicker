@@ -44,7 +44,7 @@
             <strong>Total Time:</strong>
           </div>
           <div class="row">
-            <%= time %>
+            <%= time %> seconds
           </div>
         </div>
         <br/>
@@ -84,9 +84,17 @@
             <div class="row">
               <p class="item-description"><%= description %></p>
             </div>
+            <hr/>
             <div class="row text-right" style="padding-top: 10px;">
-              <div class="cost"><strong>Cost:</strong> <%= cost %></div>
               <% if (itemType === 'store') { %>
+                <div class="value row">
+                  <% if (type === 'cps') { %>
+                    <strong>Mines <%= value %> calculator(s) per second.</strong>
+                  <% } else { %>
+                    <strong>Mines <%= value %> calculator(s) per click.</strong>
+                  <% } %>
+                </div>
+                <div class="cost"><strong>Cost:</strong> <%= cost %></div>
                 <div class="count"><strong>Inventory:</strong> <%= count %></div>
                 <% if (available) { %>
                   <div class="buy btn btn-default">Buy</div>
@@ -94,6 +102,7 @@
                   <div class="btn">Not Enough Calculators</div>
                 <% } %>
               <% } else { %>
+                <div class="cost"><strong>Cost:</strong> <%= cost %></div>
                 <% if (purchased) { %>
                   <div class="btn bought">Bought</div>
                 <% } else if (!available) { %>

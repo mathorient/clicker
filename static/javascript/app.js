@@ -3,7 +3,7 @@ var oldWindow = window;
 
 (function(window, $, _, Backbone, Marionette, Items) {
   var Events = _.extend({}, Backbone.Events);
-  var GameItems = _.extend({}, Items);
+  var GameItems = $.extend(true /* deep */, {}, Items);
 
   var GameInfo = Backbone.Model.extend({
     initialize: function(attributes, options) {
@@ -216,6 +216,7 @@ var oldWindow = window;
     onRender: function() {
       Events.trigger('items:rendered', this);
       this.headers = this.$el.find('.app-item-header ul li');
+      this.unlocked = this.$el.find('#achievements-unlocked');
       this.attachListeners();
     },
     attachListeners: function() {
@@ -264,6 +265,7 @@ var oldWindow = window;
         time: 0,
         calculators: 0,
         total: 0,
+        clicks: 0,
         // Calculators per second
         cps: 0,
         // Calculators per click
@@ -299,6 +301,7 @@ var oldWindow = window;
       // Trigger an update
       this.loadItems();
       this.update();
+      this.checkAchievements();
     },
     click: function() {
       var $target = this.layouts.clickRegion.clicker.$el;
@@ -307,6 +310,7 @@ var oldWindow = window;
         value: this.data.cpc
       });
 
+      this.data.clicks += this.data.cpc;
       this.data.total += this.data.cpc;
       this.data.calculators += this.data.cpc;
 
@@ -383,7 +387,10 @@ var oldWindow = window;
 
       achievements.forEach(function(o) {
         if (earned.indexOf(o.name) === -1) {
-          if (o.condition(self.data)) {
+          var clone = $.extend(true /* deep */, {
+            _items: $.extend(true /* deep */, {}, GameItems)
+          }, self.data);
+          if (o.condition(clone)) {
             self.data.achievements.push(o.name);
             self.collections.achievements.add(new Achievement({
               name: o.name,
@@ -395,9 +402,25 @@ var oldWindow = window;
         }
       });
 
+      var unlocked = this
+        .collections
+        .achievements
+        .length
+        .toString();
+
+      var total = achievements
+        .length
+        .toString();
+
+      this
+        .layouts
+        .itemRegion
+        .unlocked
+        .text('(' + unlocked + '/' + total + ')');
       this.save();
     },
     itemPurchase: function(item) {
+      var self = this;
       var cost = item.get('cost');
       if (cost > this.data.calculators) {
         return;
@@ -406,6 +429,37 @@ var oldWindow = window;
       var name = item.get('name');
       this.data.calculators -= cost;
       item.set('count', item.get('count') + 1);
+
+      // Check if we should add any upgrades to be now visible
+      var upgrades = GameItems.upgrades;
+      upgrades.forEach(function(upgrade) {
+        var targets = upgrade.modifierTarget;
+        if (targets === name || targets.indexOf(name) > -1) {
+          if (!self.collections.upgrades.where({ name: upgrade.name }).length) {
+            var allExist = true;
+            // This item always exist if the target is a string, otherwise we
+            // need to check against all the targets.
+            if (typeof targets !== 'string') {
+              targets.forEach(function(target) {
+                allExist = allExist && self.data.items[target].count > 0;
+              });
+            }
+            // If all the items exist, then we want to add the upgrade to
+            // our collection.
+            if (allExist) {
+              self.collections.upgrades.add(new Upgrade({
+                name: upgrade.name,
+                description: upgrade.description,
+                cost: upgrade.cost,
+                purchased: false, // should never be true here
+                modifierTarget: upgrade.modifierTarget,
+                modifierRate: upgrade.modifierRate,
+                modifierType: upgrade.modifierType
+              }));
+            }
+          }
+        }
+      });
 
       for (var i = 0; i < this.collections.store.length; i++) {
         var model = this.collections.store.at(i);
@@ -426,21 +480,6 @@ var oldWindow = window;
         this.data.items[name].count += 1;
       }
 
-      var self = this;
-      this.data.upgrades.forEach(function(upgradeName) {
-        var upgrade = self
-              .collections
-              .upgrades
-              .findWhere({ name: upgradeName });
-        if (upgrade.get('modifierTarget') === name) {
-          self.data.items[name].modifiers.push({
-            modifierRate: upgrade.get('modifierRate'),
-            modifierType: upgrade.get('modifierType'),
-            modifierTarget: upgrade.get('modifierTarget')
-          });
-        }
-      });
-
       this.updateData();
     },
     upgradePurchase: function(upgrade) {
@@ -450,7 +489,7 @@ var oldWindow = window;
       }
 
       var name = upgrade.get('name');
-      var target = upgrade.get('modifierTarget');
+      var targets = upgrade.get('modifierTarget');
 
       upgrade.set('purchased', true);
       upgrade.purchased = true;
@@ -458,8 +497,8 @@ var oldWindow = window;
       this.data.calculators -= cost;
       this.data.upgrades.push(upgrade.get('name'));
 
-      if (typeof target === 'string') {
-        target = [target];
+      if (typeof targets === 'string') {
+        targets = [targets];
       }
 
       for (var i = 0; i < this.collections.upgrades.length; i++) {
@@ -470,9 +509,9 @@ var oldWindow = window;
       }
 
       var self = this;
-      target.forEach(function(t) {
-        if (self.data.items[i]) {
-          self.data.items[t].modifiers.push({
+      targets.forEach(function(target) {
+        if (self.data.items[target]) {
+          self.data.items[target].modifiers.push({
             modifierRate: upgrade.get('modifierRate'),
             modifierType: upgrade.get('modifierType'),
             modifierTarget: upgrade.get('modifierTarget')
@@ -491,20 +530,34 @@ var oldWindow = window;
       // items list.
       Object.keys(this.data.items).forEach(function(itemKey) {
         var item = self.data.items[itemKey];
-        var value = item.baseValue;
-        item.modifiers.forEach(function(modifier) {
-          if (modifier.modifierType == 'flat') {
-            value = value + modifier.modifierRate;
-          } else if (modifier.modifierType == 'percent') {
-            value = value + value * modifier.modifierRate;
-          } else {
+        var value = item.baseValue * item.count;
+
+        var isFlatModifier = function(modifier) {
+          return modifier.modifierType === 'flat';
+        };
+        var baseModifiers = item.modifiers.filter(isFlatModifier);
+        var percentModifiers = item.modifiers.filter(function(modifier) {
+          return !isFlatModifier(modifier);
+        });
+
+        baseModifiers.forEach(function(modifier) {
+          value += item.count * modifier.modifierRate;
+        });
+
+        var percent = 0;
+        percentModifiers.forEach(function(modifier) {
+          if (modifier.modifierType !== 'percent') {
             throw TypeError('Unknown modifier type: ' + modifier.modifierType);
           }
+          percent += modifier.modifierRate;
         });
+
+        value += value * percent;
+
         if (item.type == 'cpc') {
-          cpc += value * item.count;
+          cpc += value;
         } else if (item.type == 'cps') {
-          cps += value * item.count;
+          cps += value;
         } else {
           throw TypeError('Unknown item type: ' + item.type);
         }
@@ -620,31 +673,45 @@ var oldWindow = window;
         var purchased = (data.upgrades.indexOf(o.name) > -1 ? true : false);
 
         if (o.name && o.name.length) {
-          self.collections.upgrades.add(new Upgrade({
-            name: o.name,
-            description: o.description,
-            cost: o.cost,
-            purchased: purchased,
-            modifierTarget: o.modifierTarget,
-            modifierRate: o.modifierRate,
-            modifierType: o.modifierType
-          }));
+          var targets = [];
+          var allExist = true;
+          if (typeof o.modifierTarget === 'string') {
+            targets.push(o.modifierTarget);
+          } else {
+            targets = o.modifierTarget;
+          }
 
-          if (purchased) {
-            var target = o.modifierTarget;
-            if (typeof target === 'string') {
-              target = [target];
-            }
+          targets.forEach(function(target) {
+            allExist = allExist && self.data.items[target].count > 0;
+          });
 
-            self.data.upgrades.push(o.name);
+          if (allExist) {
+            self.collections.upgrades.add(new Upgrade({
+              name: o.name,
+              description: o.description,
+              cost: o.cost,
+              purchased: purchased,
+              modifierTarget: o.modifierTarget,
+              modifierRate: o.modifierRate,
+              modifierType: o.modifierType
+            }));
 
-            target.forEach(function(t) {
-              self.data.items[t].modifiers.push({
-                modifierRate: o.modifierRate,
-                modifierType: o.modifierType,
-                modifierTarget: o.modifierTarget
+            if (purchased) {
+              var target = o.modifierTarget;
+              if (typeof target === 'string') {
+                target = [target];
+              }
+
+              self.data.upgrades.push(o.name);
+
+              target.forEach(function(t) {
+                self.data.items[t].modifiers.push({
+                  modifierRate: o.modifierRate,
+                  modifierType: o.modifierType,
+                  modifierTarget: o.modifierTarget
+                });
               });
-            });
+            }
           }
         }
       });

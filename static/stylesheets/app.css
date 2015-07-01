@@ -258,9 +258,9 @@ ul.inline li {
 
 .app-item-header li {
   display: block;
-  width: 120px;
+  min-width: 120px;
   font-size: 17px;
-  padding: 14.5px 0px;
+  padding: 14.5px 5px;
   border-width: 1px;
   border-bottom-width: 0px;
   border-top-left-radius: 10px;
@@ -269,6 +269,7 @@ ul.inline li {
   border-color: #aaa;
   text-align: center;
   font-variant: small-caps;
+  box-sizing: border-box;
 }
 
 .app-item-header li:not(:first-child) {
